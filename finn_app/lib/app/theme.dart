@@ -101,10 +101,10 @@ class FinanzasTheme {
           side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: _cardDark,
         selectedItemColor: _primaryContainer,
-        unselectedItemColor: const Color(0xFF9CAFC4),
+        unselectedItemColor: Color(0xFF9CAFC4),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),

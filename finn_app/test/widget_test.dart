@@ -1,30 +1,23 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+// Pruebas básicas de la app Finn.
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:finn_app/main.dart';
+import 'package:finn_app/shared/models/gasto.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('Gasto.toMap/fromMap roundtrip', () {
+    final original = Gasto(
+      id: 1,
+      nombre: 'Alquiler',
+      categoria: 'Vivienda',
+      monto: 1500.50,
+      fecha: DateTime(2026, 5, 27),
+      esFijo: true,
+    );
+    final restored = Gasto.fromMap(original.toMap());
+    expect(restored.id, 1);
+    expect(restored.nombre, 'Alquiler');
+    expect(restored.categoria, 'Vivienda');
+    expect(restored.monto, 1500.50);
+    expect(restored.fecha, DateTime(2026, 5, 27));
+    expect(restored.esFijo, true);
   });
 }

@@ -9,11 +9,13 @@ import '../features/recomendaciones/recomendaciones_ia_screen.dart';
 import '../features/gastos/agregar_gasto_screen.dart';
 import '../features/ahorros/crear_meta_screen.dart';
 import '../features/splash/splash_screen.dart';
+import '../features/onboarding/onboarding_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
   routes: [
     GoRoute(path: '/splash', builder: (c, s) => const SplashScreen()),
+    GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
     ShellRoute(
       builder: (ctx, state, child) => MainShell(child: child),
       routes: [

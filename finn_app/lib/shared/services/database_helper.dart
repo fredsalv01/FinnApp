@@ -88,6 +88,12 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => MetaAhorro.fromMap(maps[i]));
   }
 
+  Future<int> deleteMeta(int id) async {
+    final db = await database;
+    await db.delete('aportes_ahorro', where: 'metaId = ?', whereArgs: [id]);
+    return await db.delete('metas', where: 'id = ?', whereArgs: [id]);
+  }
+
   // --- CRUD Aportes ---
   Future<int> insertAporte(AporteAhorro aporte) async {
     final db = await database;
@@ -103,5 +109,35 @@ class DatabaseHelper {
       orderBy: 'fecha DESC',
     );
     return List.generate(maps.length, (i) => AporteAhorro.fromMap(maps[i]));
+  }
+
+  Future<double> getTotalAportesByMeta(int metaId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(monto), 0) AS total FROM aportes_ahorro WHERE metaId = ?',
+      [metaId],
+    );
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<double> getTotalAportes() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(monto), 0) AS total FROM aportes_ahorro',
+    );
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<int> deleteAporte(int id) async {
+    final db = await database;
+    return await db.delete('aportes_ahorro', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- Utilidad: borrar todo (para reset) ---
+  Future<void> clearAll() async {
+    final db = await database;
+    await db.delete('aportes_ahorro');
+    await db.delete('metas');
+    await db.delete('gastos');
   }
 }
