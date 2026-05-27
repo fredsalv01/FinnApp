@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
+import '../../app/theme_provider.dart';
 
 class ConfiguracionScreen extends StatefulWidget {
   const ConfiguracionScreen({super.key});
@@ -8,11 +10,11 @@ class ConfiguracionScreen extends StatefulWidget {
 }
 
 class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
-  bool _darkMode = false;
   bool _conectado = false;
 
   @override
   Widget build(BuildContext ctx) {
+    final themeProvider = Provider.of<ThemeProvider>(ctx);
     final cs = Theme.of(ctx).colorScheme;
     final tt = Theme.of(ctx).textTheme;
     return Scaffold(
@@ -33,8 +35,8 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
             secondary: Icon(Icons.dark_mode_outlined, color: cs.primary),
             title: const Text('Modo oscuro'),
             subtitle: const Text('Usar tema oscuro en la app'),
-            value: _darkMode,
-            onChanged: (v) => setState(() => _darkMode = v),
+            value: themeProvider.isDarkMode,
+            onChanged: (v) => themeProvider.toggleTheme(v),
             activeThumbColor: cs.primary,
           ),
           const Divider(height: 24),

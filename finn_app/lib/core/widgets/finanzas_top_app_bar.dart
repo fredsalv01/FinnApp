@@ -24,10 +24,9 @@ class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('FinanzasApp',
+          Text('Finn',
               style: tt.headlineMedium?.copyWith(color: cs.primary)),
-          if (subtitle != null)
-            Text(subtitle!, style: tt.bodySmall),
+          if (subtitle != null) Text(subtitle!, style: tt.bodySmall),
         ],
       ),
       actions: [
