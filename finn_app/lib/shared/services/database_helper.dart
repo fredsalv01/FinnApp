@@ -1,4 +1,5 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../models/gasto.dart';
 import '../models/meta_ahorro.dart';
@@ -19,6 +20,10 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
     String path = join(await getDatabasesPath(), 'finanzas_app.db');
     return await openDatabase(
       path,
