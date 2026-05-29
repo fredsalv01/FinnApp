@@ -60,6 +60,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: const Color(0xFF1A1A1A),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -477,15 +478,16 @@ class _AccountCardState extends State<_AccountCard> {
       return FinanzasCard(
         child: Column(children: [
           Row(children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.account_circle_rounded,
-                  color: cs.primary, size: 28),
+            ClipOval(
+              child: auth.avatarUrl != null
+                  ? Image.network(
+                      auth.avatarUrl!,
+                      width: 42,
+                      height: 42,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _defaultAvatar(cs),
+                    )
+                  : _defaultAvatar(cs),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -599,6 +601,15 @@ class _AccountCardState extends State<_AccountCard> {
         Icon(Icons.chevron_right_rounded,
             color: cs.primary.withValues(alpha: 0.5), size: 20),
       ]),
+    );
+  }
+
+  Widget _defaultAvatar(ColorScheme cs) {
+    return Container(
+      width: 42,
+      height: 42,
+      color: cs.primary.withValues(alpha: 0.15),
+      child: Icon(Icons.account_circle_rounded, color: cs.primary, size: 28),
     );
   }
 }

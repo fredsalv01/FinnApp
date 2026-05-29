@@ -9,11 +9,14 @@ import '../features/reportes/reportes_screen.dart';
 import '../features/configuracion/configuracion_screen.dart';
 import '../features/recomendaciones/recomendaciones_ia_screen.dart';
 import '../features/gastos/agregar_gasto_screen.dart';
+import '../shared/models/gasto.dart';
 import '../features/ahorros/crear_meta_screen.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/configuracion/recordatorios_screen.dart';
 import '../features/auth/auth_screen.dart';
+import '../features/ingresos/agregar_ingreso_screen.dart';
+import '../features/notificaciones/notificaciones_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
@@ -30,11 +33,13 @@ final router = GoRouter(
         GoRoute(path: '/config',    builder: (c, s) => const ConfiguracionScreen()),
       ],
     ),
-    GoRoute(path: '/gastos/agregar',   builder: (c, s) => const AgregarGastoScreen()),
+    GoRoute(path: '/gastos/agregar',   builder: (c, s) => AgregarGastoScreen(gasto: s.extra as Gasto?)),
     GoRoute(path: '/ahorros/nueva-meta', builder: (c, s) => const CrearMetaScreen()),
     GoRoute(path: '/recomendaciones',  builder: (c, s) => const RecomendacionesIAScreen()),
     GoRoute(path: '/config/recordatorios', builder: (c, s) => const RecordatoriosScreen()),
     GoRoute(path: '/auth', builder: (c, s) => const AuthScreen()),
+    GoRoute(path: '/ingresos/agregar', builder: (c, s) => const AgregarIngresoScreen()),
+    GoRoute(path: '/notificaciones', builder: (c, s) => const NotificacionesScreen()),
   ],
 );
 

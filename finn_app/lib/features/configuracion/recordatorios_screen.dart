@@ -64,6 +64,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
     final nuevoRecordatorio = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

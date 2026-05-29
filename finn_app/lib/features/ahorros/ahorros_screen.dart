@@ -79,27 +79,32 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     });
   }
 
-  Future<void> _registrarAporte(MetaAhorro meta) async {
+  Future<void> _registrarAporte(MetaAhorro meta, {AporteAhorro? existing}) async {
     if (meta.id == null) return;
 
     final aporte = await showModalBottomSheet<AporteAhorro>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: const Color(0xFF15181C),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) => RegistrarAporteModal(
         metaId: meta.id!,
         metaNombre: meta.nombre,
+        aporte: existing,
       ),
     );
 
     if (aporte == null) return;
 
-    await DatabaseHelper().insertAporte(aporte);
+    final db = DatabaseHelper();
+    if (existing != null) {
+      await db.updateAporte(aporte);
+    } else {
+      await db.insertAporte(aporte);
+    }
     DataRefreshNotifier().refresh();
     SyncService().syncAportesAsync();
 
@@ -109,10 +114,30 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
       SnackBar(
         backgroundColor: const Color(0xFF1C1F24),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        content: const Text('Aporte registrado'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Text(existing != null ? 'Aporte actualizado' : 'Aporte registrado'),
+      ),
+    );
+  }
+
+  Future<void> _eliminarAporte(AporteAhorro aporte) async {
+    if (aporte.id == null) return;
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Eliminar aporte',
+      message: '¿Eliminar este aporte de S/ ${aporte.monto.toStringAsFixed(2)}?',
+    );
+    if (!ok) return;
+    await DatabaseHelper().deleteAporte(aporte.id!);
+    DataRefreshNotifier().refresh();
+    SyncService().syncAportesAsync();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1C1F24),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: const Text('Aporte eliminado'),
       ),
     );
   }
@@ -606,73 +631,67 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
               else
                 ...aportes.map(
                   (a) => Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: 10),
-                    child: FinanzasCard(
-                      child: Row(
-                        children: [
-
-                          Container(
-                            padding:
-                                const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: cs.primary
-                                  .withValues(alpha: 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(12),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Dismissible(
+                      key: ValueKey('aporte_${a.id}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: cs.error.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      confirmDismiss: (_) async {
+                        await _eliminarAporte(a);
+                        return false;
+                      },
+                      child: FinanzasCard(
+                        onTap: () => _registrarAporte(meta, existing: a),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: cs.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.savings_rounded,
+                                  color: cs.primary, size: 20),
                             ),
-                            child: Icon(
-                              Icons.savings_rounded,
-                              color: cs.primary,
-                              size: 20,
-                            ),
-                          ),
-
-                          const SizedBox(width: 14),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-
-                                Text(
-                                  DateFormat(
-                                    'MMMM yyyy',
-                                    'es',
-                                  ).format(a.fecha),
-                                  style: tt.bodyLarge
-                                      ?.copyWith(
-                                    fontWeight:
-                                        FontWeight.w600,
-                                    fontSize: 14,
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('MMMM yyyy', 'es').format(a.fecha),
+                                    style: tt.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w600, fontSize: 14),
                                   ),
-                                ),
-
-                                const SizedBox(height: 2),
-
-                                Text(
-                                  DateFormat(
-                                    'dd/MM/yyyy',
-                                  ).format(a.fecha),
-                                  style: tt.bodySmall
-                                      ?.copyWith(
-                                    color: Colors.grey,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    DateFormat('dd/MM/yyyy').format(a.fecha),
+                                    style: tt.bodySmall?.copyWith(color: Colors.grey),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-
-                          Text(
-                            'S/ ${a.monto.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: cs.primary,
+                            Text(
+                              'S/ ${a.monto.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: cs.primary),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Icon(Icons.edit_outlined,
+                                size: 16,
+                                color: Colors.white.withValues(alpha: 0.3)),
+                          ],
+                        ),
                       ),
                     ),
                   ),

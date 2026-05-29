@@ -4,11 +4,13 @@ import '../models/aporte_ahorro.dart';
 class RegistrarAporteModal extends StatefulWidget {
   final int metaId;
   final String metaNombre;
+  final AporteAhorro? aporte;
 
   const RegistrarAporteModal({
     super.key,
     required this.metaId,
     required this.metaNombre,
+    this.aporte,
   });
 
   @override
@@ -18,6 +20,18 @@ class RegistrarAporteModal extends StatefulWidget {
 class _RegistrarAporteModalState extends State<RegistrarAporteModal> {
   final _montoCtrl = TextEditingController();
   DateTime _fecha = DateTime.now();
+
+  bool get _isEditing => widget.aporte != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.aporte;
+    if (a != null) {
+      _montoCtrl.text = a.monto.toStringAsFixed(2);
+      _fecha = a.fecha;
+    }
+  }
 
   @override
   void dispose() {
@@ -44,6 +58,7 @@ class _RegistrarAporteModalState extends State<RegistrarAporteModal> {
       return;
     }
     final aporte = AporteAhorro(
+      id: widget.aporte?.id,
       metaId: widget.metaId,
       monto: monto,
       fecha: _fecha,
@@ -78,7 +93,7 @@ class _RegistrarAporteModalState extends State<RegistrarAporteModal> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Registrar aporte', style: tt.headlineMedium),
+          Text(_isEditing ? 'Editar aporte' : 'Registrar aporte', style: tt.headlineMedium),
           const SizedBox(height: 4),
           Text('Meta: ${widget.metaNombre}', style: tt.bodySmall),
           const SizedBox(height: 20),
@@ -115,7 +130,7 @@ class _RegistrarAporteModalState extends State<RegistrarAporteModal> {
             child: FilledButton.icon(
               onPressed: _guardar,
               icon: const Icon(Icons.check),
-              label: const Text('Registrar'),
+              label: Text(_isEditing ? 'Actualizar' : 'Registrar'),
             ),
           ),
         ],

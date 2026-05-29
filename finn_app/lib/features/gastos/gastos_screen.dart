@@ -269,6 +269,7 @@ class _ListaGastos extends StatelessWidget {
                 return false;
               },
               child: FinanzasCard(
+                onTap: () => ctx.push('/gastos/agregar', extra: g),
                 child: Row(children: [
                   Container(
                     padding: const EdgeInsets.all(12),

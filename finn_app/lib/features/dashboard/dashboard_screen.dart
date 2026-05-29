@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/gasto.dart';
+import '../../shared/models/ingreso_extra.dart';
 import '../../shared/models/meta_ahorro.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/user_preferences.dart';
@@ -23,6 +24,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _nombre = '';
   double _ingresos = 0;
   List<Gasto> _gastos = [];
+  List<IngresoExtra> _ingresosExtras = [];
   List<MetaAhorro> _metas = [];
   double _totalAhorros = 0;
   bool _loading = true;
@@ -46,10 +48,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final n = await prefs.getUserName();
     final i = await prefs.getUserIncome();
     final g = await db.getGastos();
+    final extras = await db.getIngresosExtras();
     final m = await db.getMetas();
     final t = await db.getTotalAportes();
-    
-    // Simular un retraso corto de 800ms solo para mostrar el shimmer elegante de Revolut
+
     await Future.delayed(const Duration(milliseconds: 600));
 
     if (!mounted) return;
@@ -57,17 +59,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _nombre = n ?? '';
       _ingresos = i ?? 0;
       _gastos = g;
+      _ingresosExtras = extras;
       _metas = m;
       _totalAhorros = t;
       _loading = false;
     });
 
-    // Validar metas próximas
-    NotificationService().checkMetasProximas();
+    final notif = NotificationService();
+    notif.checkMetasProximas();
+    notif.checkAndNotifyGoogleAccount();
+    notif.checkAndNotifyNoGastosThisMonth();
   }
 
   double get _totalGastos => _gastos.fold(0.0, (s, g) => s + g.monto);
-  double get _disponible => _ingresos - _totalGastos;
+  double get _totalIngresosExtras => _ingresosExtras.fold(0.0, (s, e) => s + e.monto);
+  double get _disponible => _ingresos + _totalIngresosExtras - _totalGastos - _totalAhorros;
 
   Map<String, double> get _gastosPorCategoria {
     final map = <String, double>{};
@@ -112,7 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _DisponibleCard(
               cs: cs,
               tt: tt,
-              ingresos: _ingresos,
+              ingresos: _ingresos + _totalIngresosExtras,
               gastos: _totalGastos,
               disponible: _disponible,
               ahorros: _totalAhorros,
@@ -146,7 +152,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            _UltimasTransacciones(cs: cs, tt: tt, gastos: _gastos),
+            _UltimasTransacciones(
+                cs: cs, tt: tt, gastos: _gastos, extras: _ingresosExtras),
             const SizedBox(height: 120),
           ],
         ),
@@ -541,8 +548,10 @@ class _AccionesRapidasCard extends StatelessWidget {
     final items = [
       (Icons.add_card, 'Gasto', '/gastos/agregar'),
       (Icons.savings, 'Ahorro', '/ahorros/nueva-meta'),
+      (Icons.trending_up_rounded, 'Ingreso', '/ingresos/agregar'),
       (Icons.analytics, 'Reportes', '/reportes'),
       (Icons.auto_awesome, 'IA Tips', '/recomendaciones'),
+      (Icons.notifications_active_rounded, 'Alertas', '/notificaciones'),
     ];
     return FinanzasCard(
       padding: const EdgeInsets.all(16),
@@ -610,8 +619,9 @@ class _UltimasTransacciones extends StatelessWidget {
   final ColorScheme cs;
   final TextTheme tt;
   final List<Gasto> gastos;
+  final List<IngresoExtra> extras;
   const _UltimasTransacciones(
-      {required this.cs, required this.tt, required this.gastos});
+      {required this.cs, required this.tt, required this.gastos, required this.extras});
 
   IconData _iconFor(String categoria) {
     switch (categoria) {
@@ -640,7 +650,30 @@ class _UltimasTransacciones extends StatelessWidget {
 
   @override
   Widget build(BuildContext ctx) {
-    final ultimos = gastos.take(4).toList();
+    // Combinar gastos e ingresos extras, ordenar por fecha desc, tomar 5
+    final combined = [
+      ...gastos.map((g) => (fecha: g.fecha, widget: _TransaccionTile(
+            icon: _iconFor(g.categoria),
+            nombre: g.nombre,
+            categoria: g.categoria,
+            monto: '-S/ ${g.monto.toStringAsFixed(2)}',
+            montoColor: cs.error,
+            cs: cs,
+            tt: tt,
+          ))),
+      ...extras.map((e) => (fecha: e.fecha, widget: _TransaccionTile(
+            icon: _iconForIngreso(e.categoria),
+            nombre: e.descripcion,
+            categoria: e.categoria,
+            monto: '+S/ ${e.monto.toStringAsFixed(2)}',
+            montoColor: cs.primary,
+            cs: cs,
+            tt: tt,
+          ))),
+    ]..sort((a, b) => b.fecha.compareTo(a.fecha));
+
+    final ultimos = combined.take(5).map((e) => e.widget).toList();
+
     return FinanzasCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -664,22 +697,28 @@ class _UltimasTransacciones extends StatelessWidget {
             ),
           )
         else
-          ...ultimos.map((g) => _TransaccionTile(
-                icon: _iconFor(g.categoria),
-                nombre: g.nombre,
-                categoria: g.categoria,
-                monto: '-S/ ${g.monto.toStringAsFixed(2)}',
-                cs: cs,
-                tt: tt,
-              )),
+          ...ultimos,
       ]),
     );
+  }
+
+  IconData _iconForIngreso(String categoria) {
+    switch (categoria) {
+      case 'Freelance': return Icons.computer_outlined;
+      case 'Bonificación': return Icons.star_outline_rounded;
+      case 'Regalo': return Icons.card_giftcard_outlined;
+      case 'Venta': return Icons.storefront_outlined;
+      case 'Devolución': return Icons.undo_rounded;
+      case 'Inversión': return Icons.trending_up_rounded;
+      default: return Icons.add_circle_outline;
+    }
   }
 }
 
 class _TransaccionTile extends StatelessWidget {
   final IconData icon;
   final String nombre, categoria, monto;
+  final Color montoColor;
   final ColorScheme cs;
   final TextTheme tt;
   const _TransaccionTile({
@@ -687,6 +726,7 @@ class _TransaccionTile extends StatelessWidget {
     required this.nombre,
     required this.categoria,
     required this.monto,
+    required this.montoColor,
     required this.cs,
     required this.tt,
   });
@@ -699,10 +739,10 @@ class _TransaccionTile extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.1),
+            color: montoColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: cs.primary, size: 18),
+          child: Icon(icon, color: montoColor, size: 18),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -721,7 +761,7 @@ class _TransaccionTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: cs.error,
+              color: montoColor,
             )),
       ]),
     );

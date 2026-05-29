@@ -10,7 +10,10 @@ import 'shared/services/notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es', null);
-  await NotificationService().init();
+  final notif = NotificationService();
+  await notif.init();
+  await notif.requestPermissions();
+  notif.scheduleSmartNotifications(); // fire-and-forget
 
   if (AppConfig.supabaseUrl.isNotEmpty && AppConfig.supabaseAnonKey.isNotEmpty) {
     await Supabase.initialize(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import '../services/auth_service.dart';
 
 class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? subtitle;
@@ -18,6 +20,7 @@ class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
     final tt = Theme.of(ctx).textTheme;
+    final avatarUrl = AuthService().avatarUrl;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -33,8 +36,18 @@ class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: cs.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(Icons.account_circle_rounded,
-                color: cs.primary, size: 28),
+            clipBehavior: Clip.antiAlias,
+            child: avatarUrl != null
+                ? Image.network(
+                    avatarUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                        Icons.account_circle_rounded,
+                        color: cs.primary,
+                        size: 28),
+                  )
+                : Icon(Icons.account_circle_rounded,
+                    color: cs.primary, size: 28),
           ),
         ),
         title: Column(
@@ -85,7 +98,7 @@ class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: Icon(Icons.notifications_rounded,
                     color: Colors.white.withValues(alpha: 0.7), size: 22),
               ),
-              onPressed: () {},
+              onPressed: () => ctx.push('/notificaciones'),
             ),
           ),
         ],

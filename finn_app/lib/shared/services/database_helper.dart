@@ -6,6 +6,7 @@ import '../models/meta_ahorro.dart';
 import '../models/aporte_ahorro.dart';
 import '../models/presupuesto.dart';
 import '../models/recordatorio.dart';
+import '../models/ingreso_extra.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -29,7 +30,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'finanzas_app.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,6 +84,16 @@ class DatabaseHelper {
         completo INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE ingresos_extras(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        descripcion TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        monto REAL NOT NULL,
+        fecha TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -106,6 +117,17 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ingresos_extras(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          descripcion TEXT NOT NULL,
+          categoria TEXT NOT NULL,
+          monto REAL NOT NULL,
+          fecha TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   // --- CRUD Gastos ---
@@ -118,6 +140,12 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('gastos', orderBy: 'fecha DESC');
     return List.generate(maps.length, (i) => Gasto.fromMap(maps[i]));
+  }
+
+  Future<int> updateGasto(Gasto gasto) async {
+    final db = await database;
+    return await db.update('gastos', gasto.toMap(),
+        where: 'id = ?', whereArgs: [gasto.id]);
   }
 
   Future<int> deleteGasto(int id) async {
@@ -175,6 +203,12 @@ class DatabaseHelper {
       'SELECT COALESCE(SUM(monto), 0) AS total FROM aportes_ahorro',
     );
     return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<int> updateAporte(AporteAhorro aporte) async {
+    final db = await database;
+    return await db.update('aportes_ahorro', aporte.toMap(),
+        where: 'id = ?', whereArgs: [aporte.id]);
   }
 
   Future<int> deleteAporte(int id) async {
@@ -247,6 +281,36 @@ class DatabaseHelper {
     return await db.update('recordatorios', r.toMap(), where: 'id = ?', whereArgs: [r.id]);
   }
 
+  // --- CRUD Ingresos Extras ---
+  Future<int> insertIngresoExtra(IngresoExtra ingreso) async {
+    final db = await database;
+    return await db.insert('ingresos_extras', ingreso.toMap());
+  }
+
+  Future<List<IngresoExtra>> getIngresosExtras() async {
+    final db = await database;
+    final maps = await db.query('ingresos_extras', orderBy: 'fecha DESC');
+    return maps.map((m) => IngresoExtra.fromMap(m)).toList();
+  }
+
+  Future<double> getTotalIngresosExtras() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(monto), 0) AS total FROM ingresos_extras',
+    );
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<int> deleteIngresoExtra(int id) async {
+    final db = await database;
+    return await db.delete('ingresos_extras', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearIngresosExtras() async {
+    final db = await database;
+    await db.delete('ingresos_extras');
+  }
+
   // --- Utilidad: borrar por tabla (para sync pull) ---
   Future<void> clearGastos() async {
     final db = await database;
@@ -276,5 +340,6 @@ class DatabaseHelper {
     await db.delete('gastos');
     await db.delete('presupuestos');
     await db.delete('recordatorios');
+    await db.delete('ingresos_extras');
   }
 }

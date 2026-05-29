@@ -2,61 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
-import '../../shared/models/gasto.dart';
+import '../../shared/models/ingreso_extra.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/data_refresh_notifier.dart';
-import '../../shared/services/notification_service.dart';
-import '../../core/services/sync_service.dart';
 
-class AgregarGastoScreen extends StatefulWidget {
-  final Gasto? gasto;
-  const AgregarGastoScreen({super.key, this.gasto});
+class AgregarIngresoScreen extends StatefulWidget {
+  const AgregarIngresoScreen({super.key});
 
   @override
-  State<AgregarGastoScreen> createState() => _AgregarGastoScreenState();
+  State<AgregarIngresoScreen> createState() => _AgregarIngresoScreenState();
 }
 
-class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
+class _AgregarIngresoScreenState extends State<AgregarIngresoScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nombreCtrl = TextEditingController();
+  final _descripcionCtrl = TextEditingController();
   final _montoCtrl = TextEditingController();
 
-  String _categoria = 'Alimentación';
+  String _categoria = 'Freelance';
   DateTime _fecha = DateTime.now();
-  bool _esFijo = false;
   bool _saving = false;
 
-  bool get _isEditing => widget.gasto != null;
-
-  @override
-  void initState() {
-    super.initState();
-    final g = widget.gasto;
-    if (g != null) {
-      _nombreCtrl.text = g.nombre;
-      _montoCtrl.text = g.monto.toStringAsFixed(2);
-      _categoria = g.categoria;
-      _fecha = g.fecha;
-      _esFijo = g.esFijo;
-    }
-  }
-
   static const _categorias = [
-    'Alimentación',
-    'Vivienda',
-    'Servicios',
-    'Transporte',
-    'Entretenimiento',
-    'Suscripciones',
-    'Salud',
-    'Educación',
-    'Ropa',
-    'Otros',
+    'Freelance',
+    'Bonificación',
+    'Regalo',
+    'Venta',
+    'Devolución',
+    'Inversión',
+    'Otro',
   ];
 
   @override
   void dispose() {
-    _nombreCtrl.dispose();
+    _descripcionCtrl.dispose();
     _montoCtrl.dispose();
     super.dispose();
   }
@@ -66,44 +44,28 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
       context: context,
       initialDate: _fecha,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
     );
-    if (picked != null) {
-      setState(() => _fecha = picked);
-    }
+    if (picked != null) setState(() => _fecha = picked);
   }
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final gasto = Gasto(
-      id: widget.gasto?.id,
-      nombre: _nombreCtrl.text.trim(),
+    final ingreso = IngresoExtra(
+      descripcion: _descripcionCtrl.text.trim(),
       categoria: _categoria,
       monto: double.parse(_montoCtrl.text.trim()),
       fecha: _fecha,
-      esFijo: _esFijo,
     );
 
     try {
-      final db = DatabaseHelper();
-      if (_isEditing) {
-        await db.updateGasto(gasto);
-      } else {
-        await db.insertGasto(gasto);
-        final notif = NotificationService();
-        await notif.checkPresupuestoExcedido(gasto.categoria, gasto.monto);
-        await notif.checkGastoSemanal();
-      }
+      await DatabaseHelper().insertIngresoExtra(ingreso);
       DataRefreshNotifier().refresh();
-      SyncService().syncGastosAsync();
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isEditing ? 'Gasto actualizado' : 'Gasto agregado'),
-        ),
+        const SnackBar(content: Text('Ingreso registrado correctamente')),
       );
       context.pop();
     } catch (e) {
@@ -121,7 +83,7 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: FinanzasTopAppBar(subtitle: _isEditing ? 'Editar gasto' : 'Agregar gasto'),
+      appBar: const FinanzasTopAppBar(subtitle: 'Ingreso extra'),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -129,23 +91,22 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
               20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
           children: [
             Center(
-              child: Icon(Icons.payments_outlined,
-                  size: 56, color: cs.primary),
+              child: Icon(Icons.trending_up_rounded, size: 56, color: cs.primary),
             ),
             const SizedBox(height: 8),
-            Text(_isEditing ? 'Editar gasto' : 'Nuevo gasto',
+            Text('Nuevo ingreso',
                 style: tt.headlineLarge, textAlign: TextAlign.center),
             const SizedBox(height: 4),
-            Text('Registra un movimiento de tu economía',
+            Text('Registra un ingreso extra que recibiste',
                 style: tt.bodySmall, textAlign: TextAlign.center),
             const SizedBox(height: 24),
 
             TextFormField(
-              controller: _nombreCtrl,
+              controller: _descripcionCtrl,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Descripción',
-                hintText: 'Ej. Mercado, Taxi, Cine...',
+                hintText: 'Ej. Proyecto freelance, Bono...',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.label_outline),
               ),
@@ -157,8 +118,7 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
 
             TextFormField(
               controller: _montoCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Monto',
                 hintText: '0.00',
@@ -200,16 +160,6 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
                 child: Text(DateFormat('dd/MM/yyyy').format(_fecha)),
               ),
             ),
-            const SizedBox(height: 8),
-
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Gasto fijo mensual'),
-              subtitle: const Text('Se repite todos los meses'),
-              value: _esFijo,
-              onChanged: (v) => setState(() => _esFijo = v),
-              activeThumbColor: cs.primary,
-            ),
             const SizedBox(height: 24),
 
             SizedBox(
@@ -225,7 +175,7 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.check),
-                label: Text(_saving ? 'Guardando...' : (_isEditing ? 'Actualizar gasto' : 'Guardar gasto')),
+                label: Text(_saving ? 'Guardando...' : 'Guardar ingreso'),
               ),
             ),
             const SizedBox(height: 12),

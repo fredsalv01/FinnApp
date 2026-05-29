@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import '../../core/services/auth_service.dart';
 import 'database_helper.dart';
+import 'user_preferences.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -160,6 +163,107 @@ class NotificationService {
       debugPrint('Notificación ID $id cancelada.');
     } catch (e) {
       debugPrint('Error al cancelar notificación: $e');
+    }
+  }
+
+  // --- Canal para notificaciones inteligentes ---
+  static const _smartDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'finn_smart_channel',
+      'Recordatorios inteligentes',
+      channelDescription: 'Notificaciones automáticas de Finn',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    ),
+    iOS: DarwinNotificationDetails(),
+    macOS: DarwinNotificationDetails(),
+  );
+
+  // --- Programar Notificaciones Inteligentes (llamar al inicio de la app) ---
+  Future<void> scheduleSmartNotifications() async {
+    if (!_initialized) await init();
+    await _scheduleDailyGastoReminder();
+    await _scheduleMonthlyEndSummary();
+  }
+
+  Future<void> _scheduleDailyGastoReminder() async {
+    try {
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 18, 0);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+      await _localNotifications.zonedSchedule(
+        id: 900,
+        title: '¿Tuviste algún gasto hoy?',
+        body: 'Anota tus movimientos del día para mantener el control de tus finanzas.',
+        scheduledDate: scheduled,
+        notificationDetails: _smartDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      debugPrint('Error programando recordatorio diario: $e');
+    }
+  }
+
+  Future<void> _scheduleMonthlyEndSummary() async {
+    try {
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, 28, 20, 0);
+      if (scheduled.isBefore(now)) {
+        final nextMonth = now.month == 12 ? 1 : now.month + 1;
+        final nextYear = now.month == 12 ? now.year + 1 : now.year;
+        scheduled = tz.TZDateTime(tz.local, nextYear, nextMonth, 28, 20, 0);
+      }
+      await _localNotifications.zonedSchedule(
+        id: 901,
+        title: '¿Cómo estuvo tu mes?',
+        body: 'Abre Finn y revisa tu resumen financiero del mes.',
+        scheduledDate: scheduled,
+        notificationDetails: _smartDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+      );
+    } catch (e) {
+      debugPrint('Error programando resumen mensual: $e');
+    }
+  }
+
+  // Llamar desde Dashboard para chequeos puntuales (máx 1 vez por semana cada uno)
+  Future<void> checkAndNotifyGoogleAccount() async {
+    if (AuthService().isSignedIn) return;
+    final prefs = UserPreferences();
+    final last = await prefs.getLastNotifDate('google_account');
+    if (last != null && DateTime.now().difference(last).inDays < 7) return;
+    await prefs.setLastNotifDate('google_account');
+    await showNotification(
+      id: 902,
+      title: '☁️ Protege tus datos',
+      body: 'Conecta tu cuenta Google para hacer backup automático en la nube.',
+    );
+  }
+
+  Future<void> checkAndNotifyNoGastosThisMonth() async {
+    final now = DateTime.now();
+    if (now.day < 5) return;
+    final prefs = UserPreferences();
+    final last = await prefs.getLastNotifDate('no_gastos_mes');
+    if (last != null && DateTime.now().difference(last).inDays < 7) return;
+
+    final db = DatabaseHelper();
+    final gastos = await db.getGastos();
+    final hayGastosMes = gastos.any(
+      (g) => g.fecha.year == now.year && g.fecha.month == now.month,
+    );
+    if (!hayGastosMes) {
+      await prefs.setLastNotifDate('no_gastos_mes');
+      final mes = DateFormat('MMMM', 'es').format(now);
+      await showNotification(
+        id: 903,
+        title: '¡No has anotado gastos este mes!',
+        body: 'No encontramos movimientos en $mes. ¿Olvidaste registrarlos?',
+      );
     }
   }
 

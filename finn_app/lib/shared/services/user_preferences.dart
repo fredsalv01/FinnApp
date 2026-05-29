@@ -35,6 +35,17 @@ class UserPreferences {
     await sp.setDouble(_keyUserIncome, income);
   }
 
+  Future<DateTime?> getLastNotifDate(String key) async {
+    final sp = await SharedPreferences.getInstance();
+    final s = sp.getString('notif_$key');
+    return s != null ? DateTime.tryParse(s) : null;
+  }
+
+  Future<void> setLastNotifDate(String key) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString('notif_$key', DateTime.now().toIso8601String());
+  }
+
   Future<void> clearAll() async {
     final sp = await SharedPreferences.getInstance();
     await sp.remove(_keyOnboardingDone);
