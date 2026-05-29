@@ -247,6 +247,27 @@ class DatabaseHelper {
     return await db.update('recordatorios', r.toMap(), where: 'id = ?', whereArgs: [r.id]);
   }
 
+  // --- Utilidad: borrar por tabla (para sync pull) ---
+  Future<void> clearGastos() async {
+    final db = await database;
+    await db.delete('gastos');
+  }
+
+  Future<void> clearMetas() async {
+    final db = await database;
+    await db.delete('metas');
+  }
+
+  Future<void> clearAportes() async {
+    final db = await database;
+    await db.delete('aportes_ahorro');
+  }
+
+  Future<void> clearRecordatorios() async {
+    final db = await database;
+    await db.delete('recordatorios');
+  }
+
   // --- Utilidad: borrar todo (para reset) ---
   Future<void> clearAll() async {
     final db = await database;

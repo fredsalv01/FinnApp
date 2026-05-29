@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Finn (con cloud)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": ["--dart-define-from-file=dart_defines.json"]
+    },
+    {
+      "name": "Finn (solo local)",
+      "request": "launch",
+      "type": "dart"
+    }
+  ]
+}

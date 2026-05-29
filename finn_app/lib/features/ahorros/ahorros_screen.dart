@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/meta_ahorro.dart';
@@ -11,6 +12,7 @@ import '../../shared/services/database_helper.dart';
 import '../../shared/services/data_refresh_notifier.dart';
 import '../../shared/widgets/registrar_aporte_modal.dart';
 import '../../shared/widgets/confirm_dialog.dart';
+import '../../core/services/sync_service.dart';
 
 class AhorrosScreen extends StatefulWidget {
   const AhorrosScreen({super.key});
@@ -23,6 +25,7 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
   List<MetaAhorro> _metas = [];
   Map<int, double> _totalesPorMeta = {};
   Map<int, List<AporteAhorro>> _aportesPorMeta = {};
+
   bool _loading = true;
   MetaAhorro? _metaActiva;
 
@@ -41,23 +44,28 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
 
   Future<void> _load() async {
     final db = DatabaseHelper();
+
     final metas = await db.getMetas();
+
     final totales = <int, double>{};
     final aportes = <int, List<AporteAhorro>>{};
+
     for (final m in metas) {
       if (m.id == null) continue;
+
       totales[m.id!] = await db.getTotalAportesByMeta(m.id!);
       aportes[m.id!] = await db.getAportesByMeta(m.id!);
     }
-    
-    // Simular un retraso corto para el shimmer elegante de Revolut
+
     await Future.delayed(const Duration(milliseconds: 450));
 
     if (!mounted) return;
+
     setState(() {
       _metas = metas;
       _totalesPorMeta = totales;
       _aportesPorMeta = aportes;
+
       _metaActiva = metas.isNotEmpty
           ? (_metaActiva != null
               ? metas.firstWhere(
@@ -66,46 +74,76 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
                 )
               : metas.first)
           : null;
+
       _loading = false;
     });
   }
 
   Future<void> _registrarAporte(MetaAhorro meta) async {
     if (meta.id == null) return;
+
     final aporte = await showModalBottomSheet<AporteAhorro>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFF15181C),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
       ),
       builder: (_) => RegistrarAporteModal(
         metaId: meta.id!,
         metaNombre: meta.nombre,
       ),
     );
+
     if (aporte == null) return;
+
     await DatabaseHelper().insertAporte(aporte);
     DataRefreshNotifier().refresh();
+    SyncService().syncAportesAsync();
+
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aporte registrado')),
+      SnackBar(
+        backgroundColor: const Color(0xFF1C1F24),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: const Text('Aporte registrado'),
+      ),
     );
   }
 
   Future<void> _eliminarMeta(MetaAhorro meta) async {
     if (meta.id == null) return;
+
     final ok = await showConfirmDialog(
       context,
       title: 'Eliminar meta',
       message:
-          '¿Eliminar la meta "${meta.nombre}" y todos sus aportes? Esta acción no se puede deshacer.',
+          '¿Eliminar la meta "${meta.nombre}" y todos sus aportes?',
     );
+
     if (!ok) return;
+
     await DatabaseHelper().deleteMeta(meta.id!);
     DataRefreshNotifier().refresh();
+    SyncService().syncMetasAsync();
+
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Meta eliminada')),
+      SnackBar(
+        backgroundColor: const Color(0xFF1C1F24),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: const Text('Meta eliminada'),
+      ),
     );
   }
 
@@ -116,26 +154,29 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
 
     if (_loading) {
       return Scaffold(
-        appBar: const FinanzasTopAppBar(subtitle: 'Tus ahorros'),
+        backgroundColor: const Color(0xFF0F1115),
+        appBar: const FinanzasTopAppBar(
+          subtitle: 'Tus ahorros',
+        ),
         body: Shimmer.fromColors(
-          baseColor: Colors.white.withValues(alpha: 0.05),
-          highlightColor: Colors.white.withValues(alpha: 0.1),
+          baseColor: Colors.white.withValues(alpha: 0.04),
+          highlightColor: Colors.white.withValues(alpha: 0.08),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Container(
-                height: 180,
+                height: 220,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                 ),
               ),
               const SizedBox(height: 20),
               Container(
-                height: 220,
+                height: 240,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                 ),
               ),
             ],
@@ -146,7 +187,10 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
 
     if (_metas.isEmpty) {
       return Scaffold(
-        appBar: const FinanzasTopAppBar(subtitle: 'Tus ahorros'),
+        backgroundColor: const Color(0xFF0F1115),
+        appBar: const FinanzasTopAppBar(
+          subtitle: 'Tus ahorros',
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -154,32 +198,52 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(26),
                   decoration: BoxDecoration(
-                    color: cs.secondary.withValues(alpha: 0.05),
+                    color: cs.primary.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.savings_outlined,
-                      size: 64, color: cs.secondary),
+                  child: Icon(
+                    Icons.savings_rounded,
+                    size: 68,
+                    color: cs.primary,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                Text('Aún no tienes metas de ahorro',
-                    style: tt.headlineMedium, textAlign: TextAlign.center),
-                const SizedBox(height: 8),
-                Text('Empieza a guardar para tus proyectos, viajes o fondos de emergencia.',
-                    style: tt.bodySmall?.copyWith(color: Colors.grey), textAlign: TextAlign.center),
-                const SizedBox(height: 32),
+                Text(
+                  'Aún no tienes metas de ahorro',
+                  style: tt.headlineMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Empieza a construir tus metas financieras y sigue tu progreso mes a mes.',
+                  style: tt.bodyMedium?.copyWith(
+                    color: Colors.grey.shade500,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 34),
                 SizedBox(
-                  height: 50,
-                  width: 220,
+                  width: 240,
+                  height: 56,
                   child: FilledButton.icon(
                     onPressed: () => ctx.push('/ahorros/nueva-meta'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Crear Meta de Ahorro', style: TextStyle(fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text(
+                      'Crear Meta',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: cs.primary,
                       foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
                   ),
                 ),
@@ -191,17 +255,27 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     }
 
     final meta = _metaActiva ?? _metas.first;
+
     final ahorrado = _totalesPorMeta[meta.id] ?? 0;
+
     final aportes = _aportesPorMeta[meta.id] ?? [];
+
     final progreso = meta.montoObjetivo > 0
         ? (ahorrado / meta.montoObjetivo).clamp(0.0, 1.0)
         : 0.0;
-    final mesesRest = ((meta.fechaLimite.year - DateTime.now().year) * 12) +
-        (meta.fechaLimite.month - DateTime.now().month);
-    final faltante = (meta.montoObjetivo - ahorrado).clamp(0, double.infinity);
-    final mensualSugerido = mesesRest > 0 ? faltante / mesesRest : faltante;
+
+    final mesesRest =
+        ((meta.fechaLimite.year - DateTime.now().year) * 12) +
+            (meta.fechaLimite.month - DateTime.now().month);
+
+    final faltante =
+        (meta.montoObjetivo - ahorrado).clamp(0, double.infinity);
+
+    final mensualSugerido =
+        mesesRest > 0 ? faltante / mesesRest : faltante;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0F1115),
       appBar: FinanzasTopAppBar(
         subtitle: 'Tus ahorros',
         onAdd: () => ctx.push('/ahorros/nueva-meta'),
@@ -214,7 +288,7 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Selector de meta si hay más de una
+
               if (_metas.length > 1)
                 _SelectorMetas(
                   metas: _metas,
@@ -224,171 +298,387 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
                   cs: cs,
                   tt: tt,
                 ),
-              if (_metas.length > 1) const SizedBox(height: 12),
 
-              // Card meta activa
-              FinanzasCard(
-                color: cs.primary,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('META ACTIVA',
-                        style: tt.labelSmall?.copyWith(
-                            color: Colors.white70, letterSpacing: 1)),
-                    const SizedBox(height: 4),
-                    Text(meta.nombre,
-                        style: tt.headlineLarge?.copyWith(color: Colors.white)),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('S/ ${ahorrado.toStringAsFixed(0)}',
-                            style: tt.displayMedium
-                                ?.copyWith(color: Colors.white, fontSize: 32)),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('de S/ ${meta.montoObjetivo.toStringAsFixed(0)}',
-                                style: const TextStyle(color: Colors.white70)),
-                            Text(
-                              mesesRest > 0
-                                  ? '$mesesRest meses restantes'
-                                  : 'Plazo cumplido',
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
+              if (_metas.length > 1)
+                const SizedBox(height: 14),
+
+              // CARD PRINCIPAL
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF00C896),
+                      Color(0xFF00B383),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00C896)
+                          .withValues(alpha: 0.18),
+                      blurRadius: 28,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 10),
                     ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(99),
-                      child: LinearProgressIndicator(
-                        value: progreso,
-                        minHeight: 8,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        valueColor:
-                            const AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (mesesRest > 0 && faltante > 0)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(children: [
-                          const Icon(Icons.lightbulb_outline,
-                              color: Colors.white70, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Ahorrar S/ ${mensualSugerido.toStringAsFixed(0)}/mes para llegar a tu meta',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
-                            ),
-                          ),
-                        ]),
-                      ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // Botones acción
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _registrarAporte(meta),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Registrar aporte'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => _eliminarMeta(meta),
-                    icon: Icon(Icons.delete_outline, size: 16, color: cs.error),
-                    label: Text('Eliminar',
-                        style: TextStyle(color: cs.error)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Gráfico evolución (basado en aportes acumulados)
-              if (aportes.isNotEmpty)
-                FinanzasCard(
+                child: FinanzasCard(
+                  color: Colors.transparent,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Evolución del ahorro', style: tt.headlineMedium),
+
+                      Text(
+                        'META ACTIVA',
+                        style: tt.labelSmall?.copyWith(
+                          color: Colors.white70,
+                          letterSpacing: 1.1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      Text(
+                        meta.nombre,
+                        style: tt.headlineLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+
+                          Text(
+                            'S/ ${ahorrado.toStringAsFixed(0)}',
+                            style: tt.displayMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 38,
+                            ),
+                          ),
+
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.end,
+                            children: [
+
+                              Text(
+                                'de S/ ${meta.montoObjetivo.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+
+                              const SizedBox(height: 6),
+
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white
+                                      .withValues(alpha: 0.12),
+                                  borderRadius:
+                                      BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  mesesRest > 0
+                                      ? '⏳ $mesesRest meses'
+                                      : '🎯 Completado',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
                       const SizedBox(height: 16),
+
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: progreso,
+                          minHeight: 10,
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.2),
+                          valueColor:
+                              const AlwaysStoppedAnimation(
+                            Colors.white,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      if (mesesRest > 0 && faltante > 0)
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color:
+                                Colors.white.withValues(alpha: 0.1),
+                            borderRadius:
+                                BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+
+                              const Icon(
+                                Icons.lightbulb_outline_rounded,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              Expanded(
+                                child: Text(
+                                  'Ahorra S/ ${mensualSugerido.toStringAsFixed(0)}/mes para completar tu meta',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // BOTONES
+              Row(
+                children: [
+
+                  Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            _registrarAporte(meta),
+                        icon: const Icon(
+                          Icons.add_rounded,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Registrar aporte',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: cs.primary,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color:
+                          Colors.white.withValues(alpha: 0.04),
+                      borderRadius:
+                          BorderRadius.circular(16),
+                    ),
+                    child: PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_horiz_rounded,
+                        color: cs.onSurface
+                            .withValues(alpha: 0.8),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(16),
+                      ),
+                      color: const Color(0xFF1A1C20),
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          _eliminarMeta(meta);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                color: cs.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Eliminar meta',
+                                style: TextStyle(
+                                  color: cs.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // CHART
+              if (aportes.isNotEmpty)
+                FinanzasCard(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+
+                      Text(
+                        'Evolución del ahorro',
+                        style: tt.headlineMedium,
+                      ),
+
+                      const SizedBox(height: 18),
+
                       SizedBox(
-                        height: 150,
-                        child: _buildEvolucionChart(aportes, cs),
+                        height: 170,
+                        child: _buildEvolucionChart(
+                          aportes,
+                          cs,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              if (aportes.isNotEmpty) const SizedBox(height: 12),
 
-              // Historial aportes
-              Text('Historial de aportes', style: tt.headlineMedium),
-              const SizedBox(height: 8),
+              if (aportes.isNotEmpty)
+                const SizedBox(height: 18),
+
+              Text(
+                'Historial de aportes',
+                style: tt.headlineMedium,
+              ),
+
+              const SizedBox(height: 12),
+
               if (aportes.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 28),
                   child: Center(
-                    child: Text('Sin aportes aún', style: tt.bodySmall),
+                    child: Text(
+                      'Aún no registras aportes',
+                      style: tt.bodySmall,
+                    ),
                   ),
                 )
               else
                 ...aportes.map(
                   (a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding:
+                        const EdgeInsets.only(bottom: 10),
                     child: FinanzasCard(
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: cs.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+
+                          Container(
+                            padding:
+                                const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: cs.primary
+                                  .withValues(alpha: 0.1),
+                              borderRadius:
+                                  BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.savings_rounded,
+                              color: cs.primary,
+                              size: 20,
+                            ),
                           ),
-                          child: Icon(Icons.savings,
-                              color: cs.primary, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                DateFormat('MMMM yyyy', 'es')
-                                    .format(a.fecha),
-                                style: tt.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w500, fontSize: 14),
-                              ),
-                              Text(DateFormat('dd/MM/yyyy').format(a.fecha),
-                                  style: tt.bodySmall),
-                            ],
+
+                          const SizedBox(width: 14),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+
+                                Text(
+                                  DateFormat(
+                                    'MMMM yyyy',
+                                    'es',
+                                  ).format(a.fecha),
+                                  style: tt.bodyLarge
+                                      ?.copyWith(
+                                    fontWeight:
+                                        FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 2),
+
+                                Text(
+                                  DateFormat(
+                                    'dd/MM/yyyy',
+                                  ).format(a.fecha),
+                                  style: tt.bodySmall
+                                      ?.copyWith(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Text(
-                          'S/ ${a.monto.toStringAsFixed(2)}',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: cs.primary),
-                        ),
-                      ]),
+
+                          Text(
+                            'S/ ${a.monto.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: cs.primary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              const SizedBox(height: 80),
+
+              const SizedBox(height: 130),
             ],
           ),
         ),
@@ -396,27 +686,40 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     );
   }
 
-  Widget _buildEvolucionChart(List<AporteAhorro> aportes, ColorScheme cs) {
-    // Ordenar por fecha ascendente para construir acumulado
-    final ordenados = [...aportes]..sort((a, b) => a.fecha.compareTo(b.fecha));
+  Widget _buildEvolucionChart(
+    List<AporteAhorro> aportes,
+    ColorScheme cs,
+  ) {
+    final ordenados = [...aportes]
+      ..sort((a, b) => a.fecha.compareTo(b.fecha));
+
     final spots = <FlSpot>[];
     final fechas = <int, String>{};
 
-    // Siempre empezar desde 0 para que se vea la línea de evolución
     spots.add(const FlSpot(0, 0));
     fechas[0] = 'Inicio';
 
     double acumulado = 0;
+
     for (var i = 0; i < ordenados.length; i++) {
       acumulado += ordenados[i].monto;
-      final idx = i + 1; // offset por el punto inicial
-      spots.add(FlSpot(idx.toDouble(), acumulado));
-      fechas[idx] = DateFormat('dd/MM').format(ordenados[i].fecha);
+
+      final idx = i + 1;
+
+      spots.add(
+        FlSpot(idx.toDouble(), acumulado),
+      );
+
+      fechas[idx] = DateFormat(
+        'dd/MM',
+      ).format(ordenados[i].fecha);
     }
 
-    // Si la meta activa tiene objetivo, agregar línea de referencia
-    final meta = _metaActiva ?? (_metas.isNotEmpty ? _metas.first : null);
-    final maxY = meta != null && meta.montoObjetivo > acumulado
+    final meta =
+        _metaActiva ?? (_metas.isNotEmpty ? _metas.first : null);
+
+    final maxY = meta != null &&
+            meta.montoObjetivo > acumulado
         ? meta.montoObjetivo * 1.1
         : acumulado * 1.2;
 
@@ -424,16 +727,23 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
       LineChartData(
         minY: 0,
         maxY: maxY > 0 ? maxY : 100,
+
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxY > 0 ? maxY / 4 : 25,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: cs.onSurface.withValues(alpha: 0.08),
-            strokeWidth: 1,
-          ),
+          horizontalInterval:
+              maxY > 0 ? maxY / 4 : 25,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color:
+                  cs.onSurface.withValues(alpha: 0.08),
+              strokeWidth: 1,
+            );
+          },
         ),
+
         borderData: FlBorderData(show: false),
+
         titlesData: FlTitlesData(
           leftTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
@@ -451,16 +761,20 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
               interval: 1,
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
+
                 if (!fechas.containsKey(idx)) {
                   return const SizedBox.shrink();
                 }
+
                 return Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding:
+                      const EdgeInsets.only(top: 6),
                   child: Text(
                     fechas[idx]!,
                     style: TextStyle(
                       fontSize: 10,
-                      color: cs.onSurface.withValues(alpha: 0.5),
+                      color: cs.onSurface
+                          .withValues(alpha: 0.5),
                     ),
                   ),
                 );
@@ -468,12 +782,14 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
             ),
           ),
         ),
+
         extraLinesData: meta != null
             ? ExtraLinesData(
                 horizontalLines: [
                   HorizontalLine(
                     y: meta.montoObjetivo,
-                    color: cs.primary.withValues(alpha: 0.3),
+                    color: cs.primary
+                        .withValues(alpha: 0.3),
                     strokeWidth: 1.5,
                     dashArray: [6, 4],
                     label: HorizontalLineLabel(
@@ -481,7 +797,8 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
                       alignment: Alignment.topRight,
                       style: TextStyle(
                         fontSize: 10,
-                        color: cs.primary.withValues(alpha: 0.6),
+                        color: cs.primary
+                            .withValues(alpha: 0.6),
                         fontWeight: FontWeight.w600,
                       ),
                       labelResolver: (_) =>
@@ -491,15 +808,22 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
                 ],
               )
             : null,
+
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
+            tooltipRoundedRadius: 14,
+            tooltipPadding:
+                const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            getTooltipItems: (spots) {
+              return spots.map((spot) {
                 return LineTooltipItem(
                   'S/ ${spot.y.toStringAsFixed(2)}',
-                  TextStyle(
+                  const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 );
@@ -507,32 +831,38 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
             },
           ),
         ),
+
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
             preventCurveOverShooting: true,
             color: cs.primary,
-            barWidth: 3,
+            barWidth: 4,
+
             dotData: FlDotData(
               show: true,
-              getDotPainter: (spot, pct, barData, idx) {
+              getDotPainter:
+                  (spot, pct, barData, idx) {
                 return FlDotCirclePainter(
-                  radius: idx == 0 ? 0 : 4,
+                  radius: idx == 0 ? 0 : 4.5,
                   color: cs.primary,
                   strokeWidth: 2,
                   strokeColor: Colors.white,
                 );
               },
             ),
+
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  cs.primary.withValues(alpha: 0.25),
-                  cs.primary.withValues(alpha: 0.02),
+                  cs.primary
+                      .withValues(alpha: 0.28),
+                  cs.primary
+                      .withValues(alpha: 0.02),
                 ],
               ),
             ),
@@ -550,6 +880,7 @@ class _SelectorMetas extends StatelessWidget {
   final ValueChanged<MetaAhorro> onTap;
   final ColorScheme cs;
   final TextTheme tt;
+
   const _SelectorMetas({
     required this.metas,
     required this.activa,
@@ -562,43 +893,80 @@ class _SelectorMetas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 56,
+      height: 58,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: metas.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) =>
+            const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final m = metas[i];
+
           final isActive = m.id == activa.id;
+
           final total = totales[m.id] ?? 0;
+
           final pct = m.montoObjetivo > 0
-              ? (total / m.montoObjetivo * 100).toStringAsFixed(0)
+              ? (total / m.montoObjetivo * 100)
+                  .toStringAsFixed(0)
               : '0';
+
           return GestureDetector(
             onTap: () => onTap(m),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(
+                milliseconds: 250,
+              ),
               padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
               decoration: BoxDecoration(
                 color: isActive
                     ? cs.primary
-                    : cs.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                    : Colors.white.withValues(
+                        alpha: 0.04,
+                      ),
+                borderRadius:
+                    BorderRadius.circular(16),
+                border: Border.all(
+                  color: isActive
+                      ? Colors.transparent
+                      : Colors.white.withValues(
+                          alpha: 0.05,
+                        ),
+                ),
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: [
-                  Text(m.nombre,
-                      style: TextStyle(
-                          color: isActive ? Colors.white : cs.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13)),
-                  Text('$pct% completado',
-                      style: TextStyle(
-                          color:
-                              isActive ? Colors.white70 : cs.onSurfaceVariant,
-                          fontSize: 11)),
+
+                  Text(
+                    m.nombre,
+                    style: TextStyle(
+                      color: isActive
+                          ? Colors.black
+                          : Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+
+                  const SizedBox(height: 2),
+
+                  Text(
+                    '$pct% completado',
+                    style: TextStyle(
+                      color: isActive
+                          ? Colors.black87
+                          : Colors.grey.shade500,
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
             ),

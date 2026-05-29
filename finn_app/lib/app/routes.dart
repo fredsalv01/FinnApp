@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
@@ -12,6 +13,7 @@ import '../features/ahorros/crear_meta_screen.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/configuracion/recordatorios_screen.dart';
+import '../features/auth/auth_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
@@ -32,10 +34,11 @@ final router = GoRouter(
     GoRoute(path: '/ahorros/nueva-meta', builder: (c, s) => const CrearMetaScreen()),
     GoRoute(path: '/recomendaciones',  builder: (c, s) => const RecomendacionesIAScreen()),
     GoRoute(path: '/config/recordatorios', builder: (c, s) => const RecordatoriosScreen()),
+    GoRoute(path: '/auth', builder: (c, s) => const AuthScreen()),
   ],
 );
 
-// Shell con BottomNavBar y FAB
+// Shell con BottomNavBar flotante glassmorphism
 class MainShell extends StatefulWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -52,53 +55,70 @@ class _MainShellState extends State<MainShell> {
     final cs = Theme.of(ctx).colorScheme;
 
     return Scaffold(
+      extendBody: true,
       body: widget.child,
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          border: Border(
-            top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05),
-              width: 1.0,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 32,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: SalomonBottomBar(
+                currentIndex: _idx,
+                onTap: (i) {
+                  setState(() => _idx = i);
+                  ctx.go(_routes[i]);
+                },
+                selectedItemColor: cs.primary,
+                unselectedItemColor: Colors.grey.withValues(alpha: 0.6),
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                itemPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                items: [
+                  SalomonBottomBarItem(
+                    icon: const Icon(Icons.dashboard_rounded),
+                    title: const Text("Dashboard"),
+                    selectedColor: cs.primary,
+                  ),
+                  SalomonBottomBarItem(
+                    icon: const Icon(Icons.payments_rounded),
+                    title: const Text("Gastos"),
+                    selectedColor: cs.error,
+                  ),
+                  SalomonBottomBarItem(
+                    icon: const Icon(Icons.savings_rounded),
+                    title: const Text("Ahorros"),
+                    selectedColor: cs.secondary,
+                  ),
+                  SalomonBottomBarItem(
+                    icon: const Icon(Icons.bar_chart_rounded),
+                    title: const Text("Reportes"),
+                    selectedColor: cs.primary,
+                  ),
+                  SalomonBottomBarItem(
+                    icon: const Icon(Icons.tune_rounded),
+                    title: const Text("Config"),
+                    selectedColor: Colors.purpleAccent,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        child: SalomonBottomBar(
-          currentIndex: _idx,
-          onTap: (i) {
-            setState(() => _idx = i);
-            ctx.go(_routes[i]);
-          },
-          selectedItemColor: cs.primary,
-          unselectedItemColor: Colors.grey,
-          items: [
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.dashboard_outlined),
-              title: const Text("Dashboard"),
-              selectedColor: cs.primary,
-            ),
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.payments_outlined),
-              title: const Text("Gastos"),
-              selectedColor: cs.error,
-            ),
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.savings_outlined),
-              title: const Text("Ahorros"),
-              selectedColor: cs.secondary,
-            ),
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.analytics_outlined),
-              title: const Text("Reportes"),
-              selectedColor: cs.primary,
-            ),
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.settings_outlined),
-              title: const Text("Config"),
-              selectedColor: Colors.purpleAccent,
-            ),
-          ],
         ),
       ),
     );

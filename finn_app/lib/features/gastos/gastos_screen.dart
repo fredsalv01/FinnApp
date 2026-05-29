@@ -8,6 +8,7 @@ import '../../shared/models/gasto.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/data_refresh_notifier.dart';
 import '../../shared/widgets/confirm_dialog.dart';
+import '../../core/services/sync_service.dart';
 
 class GastosScreen extends StatefulWidget {
   const GastosScreen({super.key});
@@ -47,6 +48,7 @@ class _GastosScreenState extends State<GastosScreen>
     );
     if (!ok || g.id == null) return;
     await DatabaseHelper().deleteGasto(g.id!);
+    SyncService().syncGastosAsync();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Gasto eliminado')),
@@ -81,17 +83,32 @@ class _GastosScreenState extends State<GastosScreen>
       ),
       body: Column(
         children: [
-          TabBar(
-            controller: _tab,
-            labelColor: cs.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: cs.primary,
-            dividerColor: Colors.transparent,
-            tabs: [
-              Tab(text: 'Todos (${_gastos.length})'),
-              Tab(text: 'Fijos (${fijos.length})'),
-              Tab(text: 'Variables (${variables.length})'),
-            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: TabBar(
+                controller: _tab,
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.grey,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelPadding: EdgeInsets.zero,
+                tabs: [
+                  Tab(text: 'Todos (${_gastos.length})'),
+                  Tab(text: 'Fijos (${fijos.length})'),
+                  Tab(text: 'Variables (${variables.length})'),
+                ],
+              ),
+            ),
           ),
           if (_loading)
             Expanded(child: _buildShimmerLoader())
@@ -229,7 +246,7 @@ class _ListaGastos extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
         itemCount: gastos.length,
         itemBuilder: (_, i) {
           final g = gastos[i];

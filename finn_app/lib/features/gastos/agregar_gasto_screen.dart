@@ -6,6 +6,7 @@ import '../../shared/models/gasto.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/data_refresh_notifier.dart';
 import '../../shared/services/notification_service.dart';
+import '../../core/services/sync_service.dart';
 
 class AgregarGastoScreen extends StatefulWidget {
   const AgregarGastoScreen({super.key});
@@ -71,6 +72,7 @@ class _AgregarGastoScreenState extends State<AgregarGastoScreen> {
     try {
       await DatabaseHelper().insertGasto(gasto);
       DataRefreshNotifier().refresh();
+      SyncService().syncGastosAsync();
       
       // Chequear alertas y notificaciones locales
       final notif = NotificationService();

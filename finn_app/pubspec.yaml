@@ -24,6 +24,8 @@ dependencies:
   shimmer: ^3.0.0
   smooth_page_indicator: ^2.0.1
   salomon_bottom_bar: ^3.3.2
+  supabase_flutter: ^2.12.4
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

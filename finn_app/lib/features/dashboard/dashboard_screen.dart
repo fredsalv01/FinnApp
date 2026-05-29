@@ -147,7 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
 
             _UltimasTransacciones(cs: cs, tt: tt, gastos: _gastos),
-            const SizedBox(height: 80),
+            const SizedBox(height: 120),
           ],
         ),
       ),

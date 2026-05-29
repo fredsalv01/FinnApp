@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../core/services/sync_service.dart';
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/recordatorio.dart';
@@ -44,7 +46,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
 
     await NotificationService().cancelNotification(r.id!);
     await DatabaseHelper().deleteRecordatorio(r.id!);
-
+    SyncService().syncRecordatoriosAsync();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Recordatorio eliminado')),
@@ -163,8 +165,9 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                         ),
                         validator: (v) {
                           final n = double.tryParse(v?.trim() ?? '');
-                          if (n == null || n <= 0)
+                          if (n == null || n <= 0) {
                             return 'Ingresa un monto válido';
+                          }
                           return null;
                         },
                       ),
@@ -215,6 +218,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                               scheduledDate: recordatorio.fecha,
                             );
 
+                            SyncService().syncRecordatoriosAsync();
                             if (!context.mounted) return;
                             Navigator.of(context).pop(true);
                           },
@@ -244,27 +248,73 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
     return Scaffold(
       appBar: const FinanzasTopAppBar(subtitle: 'Recordatorios de Pago'),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Shimmer.fromColors(
+              baseColor: Colors.white.withValues(alpha: 0.05),
+              highlightColor: Colors.white.withValues(alpha: 0.12),
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                itemCount: 4,
+                itemBuilder: (_, __) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+              ),
+            )
           : _recordatorios.isEmpty
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.notification_important_outlined,
-                          size: 64, color: cs.primary.withValues(alpha: 0.4)),
-                      const SizedBox(height: 12),
-                      Text('No tienes recordatorios de pago',
-                          style: tt.titleMedium),
-                      FilledButton.icon(
-                        onPressed: _agregarRecordatorio,
-                        icon: const Icon(Icons.add_alert),
-                        label: const Text('Programar Recordatorio'),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(26),
+                          decoration: BoxDecoration(
+                            color: cs.primary.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.notifications_active_rounded,
+                              size: 68, color: cs.primary),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('Sin recordatorios', style: tt.headlineMedium,
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Programa avisos de pago para no olvidar tus servicios.',
+                          style: tt.bodySmall?.copyWith(
+                              color: Colors.grey.shade500, height: 1.6),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 34),
+                        SizedBox(
+                          width: 240,
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: _agregarRecordatorio,
+                            icon: const Icon(Icons.add_alert_rounded),
+                            label: const Text('Programar recordatorio',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: cs.primary,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                   itemCount: _recordatorios.length,
                   itemBuilder: (ctx, i) {
                     final r = _recordatorios[i];

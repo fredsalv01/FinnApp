@@ -5,6 +5,7 @@ import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/meta_ahorro.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/data_refresh_notifier.dart';
+import '../../core/services/sync_service.dart';
 
 class CrearMetaScreen extends StatefulWidget {
   const CrearMetaScreen({super.key});
@@ -53,6 +54,7 @@ class _CrearMetaScreenState extends State<CrearMetaScreen> {
     try {
       await DatabaseHelper().insertMeta(meta);
       DataRefreshNotifier().refresh();
+      SyncService().syncMetasAsync();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meta creada correctamente')),
