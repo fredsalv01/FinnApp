@@ -44,7 +44,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
 
     await NotificationService().cancelNotification(r.id!);
     await DatabaseHelper().deleteRecordatorio(r.id!);
-    
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Recordatorio eliminado')),
@@ -152,7 +152,8 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: montoCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         decoration: const InputDecoration(
                           labelText: 'Monto estimado',
                           hintText: '0.00',
@@ -162,7 +163,8 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                         ),
                         validator: (v) {
                           final n = double.tryParse(v?.trim() ?? '');
-                          if (n == null || n <= 0) return 'Ingresa un monto válido';
+                          if (n == null || n <= 0)
+                            return 'Ingresa un monto válido';
                           return null;
                         },
                       ),
@@ -173,7 +175,8 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                             child: OutlinedButton.icon(
                               onPressed: pickDate,
                               icon: const Icon(Icons.calendar_today),
-                              label: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
+                              label: Text(DateFormat('dd/MM/yyyy')
+                                  .format(selectedDate)),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -200,13 +203,15 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                               fecha: selectedDate,
                             );
 
-                            final id = await DatabaseHelper().insertRecordatorio(recordatorio);
+                            final id = await DatabaseHelper()
+                                .insertRecordatorio(recordatorio);
 
                             // Programar notificación
                             await NotificationService().scheduleNotification(
                               id: id,
                               title: '🔔 Recordatorio de Pago',
-                              body: 'Hoy vence el pago de "${recordatorio.titulo}" por S/ ${recordatorio.monto.toStringAsFixed(2)}.',
+                              body:
+                                  'Hoy vence el pago de "${recordatorio.titulo}" por S/ ${recordatorio.monto.toStringAsFixed(2)}.',
                               scheduledDate: recordatorio.fecha,
                             );
 
@@ -248,10 +253,13 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                       Icon(Icons.notification_important_outlined,
                           size: 64, color: cs.primary.withValues(alpha: 0.4)),
                       const SizedBox(height: 12),
-                      Text('No tienes recordatorios de pago', style: tt.titleMedium),
-                      const SizedBox(height: 4),
-                      Text('Presiona el botón inferior para programar uno',
-                          style: tt.bodySmall),
+                      Text('No tienes recordatorios de pago',
+                          style: tt.titleMedium),
+                      FilledButton.icon(
+                        onPressed: _agregarRecordatorio,
+                        icon: const Icon(Icons.add_alert),
+                        label: const Text('Programar Recordatorio'),
+                      ),
                     ],
                   ),
                 )
@@ -260,7 +268,8 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                   itemCount: _recordatorios.length,
                   itemBuilder: (ctx, i) {
                     final r = _recordatorios[i];
-                    final formateada = DateFormat('dd/MM/yyyy - hh:mm a').format(r.fecha);
+                    final formateada =
+                        DateFormat('dd/MM/yyyy - hh:mm a').format(r.fecha);
                     final esPasado = r.fecha.isBefore(DateTime.now());
 
                     return Padding(
@@ -293,7 +302,9 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
-                                  esPasado ? Icons.notifications_none : Icons.notifications_active,
+                                  esPasado
+                                      ? Icons.notifications_none
+                                      : Icons.notifications_active,
                                   color: esPasado ? Colors.grey : cs.primary,
                                 ),
                               ),
@@ -306,14 +317,18 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                                       r.titulo,
                                       style: tt.bodyLarge?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        decoration: esPasado ? TextDecoration.lineThrough : null,
+                                        decoration: esPasado
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       'Vence: $formateada',
                                       style: tt.bodySmall?.copyWith(
-                                        color: esPasado ? Colors.grey : cs.onSurface,
+                                        color: esPasado
+                                            ? Colors.grey
+                                            : cs.onSurface,
                                       ),
                                     ),
                                   ],
@@ -334,10 +349,9 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _agregarRecordatorio,
-        icon: const Icon(Icons.add_alert),
-        label: const Text('Programar Pago'),
+        child: const Icon(Icons.add_alert_rounded),
       ),
     );
   }
