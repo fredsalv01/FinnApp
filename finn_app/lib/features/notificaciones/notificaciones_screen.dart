@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../core/widgets/finanzas_card.dart';
-import '../../shared/services/notification_service.dart';
 
 class NotificacionesScreen extends StatelessWidget {
   const NotificacionesScreen({super.key});
@@ -108,50 +107,6 @@ class NotificacionesScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 24),
-          _SectionLabel('PRUEBA', tt),
-          const SizedBox(height: 10),
-          FinanzasCard(
-            child: Column(
-              children: [
-                _TestRow(
-                  icon: Icons.cloud_outlined,
-                  color: const Color(0xFF8B5CF6),
-                  title: 'Probar: sin cuenta Google',
-                  cs: cs,
-                  tt: tt,
-                  onTap: () async {
-                    await NotificationService().checkAndNotifyGoogleAccount();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notificación enviada (si no tienes sesión)'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-                _Divider(),
-                _TestRow(
-                  icon: Icons.receipt_long_outlined,
-                  color: const Color(0xFFF59E0B),
-                  title: 'Probar: sin gastos este mes',
-                  cs: cs,
-                  tt: tt,
-                  onTap: () async {
-                    await NotificationService().checkAndNotifyNoGastosThisMonth();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notificación enviada (si no tienes gastos)'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -240,50 +195,6 @@ class _ActiveBadge extends StatelessWidget {
         'ON',
         style: TextStyle(
             color: cs.primary, fontSize: 10, fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-}
-
-class _TestRow extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final ColorScheme cs;
-  final TextTheme tt;
-  final VoidCallback onTap;
-  const _TestRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.cs,
-    required this.tt,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(title,
-                style: tt.bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w600, fontSize: 14)),
-          ),
-          Icon(Icons.send_rounded, color: cs.primary.withValues(alpha: 0.5), size: 16),
-        ],
       ),
     );
   }
