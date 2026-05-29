@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/meta_ahorro.dart';
@@ -48,6 +49,10 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
       totales[m.id!] = await db.getTotalAportesByMeta(m.id!);
       aportes[m.id!] = await db.getAportesByMeta(m.id!);
     }
+    
+    // Simular un retraso corto para el shimmer elegante de Revolut
+    await Future.delayed(const Duration(milliseconds: 450));
+
     if (!mounted) return;
     setState(() {
       _metas = metas;
@@ -71,7 +76,7 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => RegistrarAporteModal(
         metaId: meta.id!,
@@ -110,9 +115,32 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     final tt = Theme.of(ctx).textTheme;
 
     if (_loading) {
-      return const Scaffold(
-        appBar: FinanzasTopAppBar(subtitle: 'Tus ahorros'),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: const FinanzasTopAppBar(subtitle: 'Tus ahorros'),
+        body: Shimmer.fromColors(
+          baseColor: Colors.white.withValues(alpha: 0.05),
+          highlightColor: Colors.white.withValues(alpha: 0.1),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                height: 220,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -121,23 +149,39 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
         appBar: const FinanzasTopAppBar(subtitle: 'Tus ahorros'),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.savings_outlined,
-                    size: 80, color: cs.onSurface.withValues(alpha: 0.25)),
-                const SizedBox(height: 16),
-                Text('Aún no tienes metas',
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: cs.secondary.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.savings_outlined,
+                      size: 64, color: cs.secondary),
+                ),
+                const SizedBox(height: 24),
+                Text('Aún no tienes metas de ahorro',
                     style: tt.headlineMedium, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                Text('Define tu primera meta de ahorro para comenzar',
-                    style: tt.bodySmall, textAlign: TextAlign.center),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () => ctx.push('/ahorros/nueva-meta'),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Crear meta'),
+                Text('Empieza a guardar para tus proyectos, viajes o fondos de emergencia.',
+                    style: tt.bodySmall?.copyWith(color: Colors.grey), textAlign: TextAlign.center),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 50,
+                  width: 220,
+                  child: FilledButton.icon(
+                    onPressed: () => ctx.push('/ahorros/nueva-meta'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Crear Meta de Ahorro', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -158,7 +202,10 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     final mensualSugerido = mesesRest > 0 ? faltante / mesesRest : faltante;
 
     return Scaffold(
-      appBar: const FinanzasTopAppBar(subtitle: 'Tus ahorros'),
+      appBar: FinanzasTopAppBar(
+        subtitle: 'Tus ahorros',
+        onAdd: () => ctx.push('/ahorros/nueva-meta'),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: SingleChildScrollView(
@@ -353,31 +400,141 @@ class _AhorrosScreenState extends State<AhorrosScreen> {
     // Ordenar por fecha ascendente para construir acumulado
     final ordenados = [...aportes]..sort((a, b) => a.fecha.compareTo(b.fecha));
     final spots = <FlSpot>[];
+    final fechas = <int, String>{};
+
+    // Siempre empezar desde 0 para que se vea la línea de evolución
+    spots.add(const FlSpot(0, 0));
+    fechas[0] = 'Inicio';
+
     double acumulado = 0;
     for (var i = 0; i < ordenados.length; i++) {
       acumulado += ordenados[i].monto;
-      spots.add(FlSpot(i.toDouble(), acumulado));
+      final idx = i + 1; // offset por el punto inicial
+      spots.add(FlSpot(idx.toDouble(), acumulado));
+      fechas[idx] = DateFormat('dd/MM').format(ordenados[i].fecha);
     }
+
+    // Si la meta activa tiene objetivo, agregar línea de referencia
+    final meta = _metaActiva ?? (_metas.isNotEmpty ? _metas.first : null);
+    final maxY = meta != null && meta.montoObjetivo > acumulado
+        ? meta.montoObjetivo * 1.1
+        : acumulado * 1.2;
+
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: false),
+        minY: 0,
+        maxY: maxY > 0 ? maxY : 100,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: maxY > 0 ? maxY / 4 : 25,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: cs.onSurface.withValues(alpha: 0.08),
+            strokeWidth: 1,
+          ),
+        ),
         borderData: FlBorderData(show: false),
-        titlesData: const FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              interval: 1,
+              getTitlesWidget: (value, meta) {
+                final idx = value.toInt();
+                if (!fechas.containsKey(idx)) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    fechas[idx]!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        extraLinesData: meta != null
+            ? ExtraLinesData(
+                horizontalLines: [
+                  HorizontalLine(
+                    y: meta.montoObjetivo,
+                    color: cs.primary.withValues(alpha: 0.3),
+                    strokeWidth: 1.5,
+                    dashArray: [6, 4],
+                    label: HorizontalLineLabel(
+                      show: true,
+                      alignment: Alignment.topRight,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.primary.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      labelResolver: (_) =>
+                          'Meta: S/ ${meta.montoObjetivo.toStringAsFixed(0)}',
+                    ),
+                  ),
+                ],
+              )
+            : null,
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipItems: (touchedSpots) {
+              return touchedSpots.map((spot) {
+                return LineTooltipItem(
+                  'S/ ${spot.y.toStringAsFixed(2)}',
+                  TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                );
+              }).toList();
+            },
+          ),
         ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
+            preventCurveOverShooting: true,
             color: cs.primary,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, pct, barData, idx) {
+                return FlDotCirclePainter(
+                  radius: idx == 0 ? 0 : 4,
+                  color: cs.primary,
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                );
+              },
+            ),
             belowBarData: BarAreaData(
               show: true,
-              color: cs.primary.withValues(alpha: 0.1),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  cs.primary.withValues(alpha: 0.25),
+                  cs.primary.withValues(alpha: 0.02),
+                ],
+              ),
             ),
           ),
         ],

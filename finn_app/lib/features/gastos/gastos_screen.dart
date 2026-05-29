@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/gasto.dart';
@@ -29,6 +31,7 @@ class _GastosScreenState extends State<GastosScreen>
 
   Future<void> _load() async {
     final gastos = await DatabaseHelper().getGastos();
+    await Future.delayed(const Duration(milliseconds: 400)); // Shimmer delay
     if (!mounted) return;
     setState(() {
       _gastos = gastos;
@@ -72,13 +75,18 @@ class _GastosScreenState extends State<GastosScreen>
     final variables = _gastos.where((g) => !g.esFijo).toList();
 
     return Scaffold(
-      appBar: FinanzasTopAppBar(subtitle: 'Tus gastos · $_mesActual'),
+      appBar: FinanzasTopAppBar(
+        subtitle: 'Tus gastos · $_mesActual',
+        onAdd: () => ctx.push('/gastos/agregar'),
+      ),
       body: Column(
         children: [
           TabBar(
             controller: _tab,
             labelColor: cs.primary,
+            unselectedLabelColor: Colors.grey,
             indicatorColor: cs.primary,
+            dividerColor: Colors.transparent,
             tabs: [
               Tab(text: 'Todos (${_gastos.length})'),
               Tab(text: 'Fijos (${fijos.length})'),
@@ -86,7 +94,7 @@ class _GastosScreenState extends State<GastosScreen>
             ],
           ),
           if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            Expanded(child: _buildShimmerLoader())
           else
             Expanded(
               child: TabBarView(
@@ -99,6 +107,27 @@ class _GastosScreenState extends State<GastosScreen>
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerLoader() {
+    return Shimmer.fromColors(
+      baseColor: Colors.white.withValues(alpha: 0.05),
+      highlightColor: Colors.white.withValues(alpha: 0.1),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -150,18 +179,45 @@ class _ListaGastos extends StatelessWidget {
       return RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 80),
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 32),
               child: Center(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.receipt_long_outlined,
-                        size: 64, color: cs.onSurface.withValues(alpha: 0.2)),
-                    const SizedBox(height: 12),
-                    Text('No hay gastos registrados', style: tt.bodySmall),
-                    const SizedBox(height: 4),
-                    Text('Usa el botón + para agregar uno', style: tt.bodySmall),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.receipt_long_outlined,
+                          size: 64, color: cs.primary),
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Aún no registras gastos',
+                        style: tt.headlineMedium, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text('Lleva un control detallado de tus compras y salidas.',
+                        style: tt.bodySmall?.copyWith(color: Colors.grey),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      height: 50,
+                      width: 200,
+                      child: FilledButton.icon(
+                        onPressed: () => ctx.push('/gastos/agregar'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Agregar Gasto', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: cs.primary,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -178,16 +234,16 @@ class _ListaGastos extends StatelessWidget {
         itemBuilder: (_, i) {
           final g = gastos[i];
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 10),
             child: Dismissible(
               key: ValueKey('gasto_${g.id}'),
               direction: DismissDirection.endToStart,
               background: Container(
                 alignment: Alignment.centerRight,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 decoration: BoxDecoration(
                   color: cs.error.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: const Icon(Icons.delete, color: Colors.white),
               ),
@@ -198,40 +254,40 @@ class _ListaGastos extends StatelessWidget {
               child: FinanzasCard(
                 child: Row(children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(_iconFor(g.categoria),
-                        color: cs.primary, size: 20),
+                        color: cs.primary, size: 22),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(g.nombre,
                             style: tt.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w500, fontSize: 14)),
+                                fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SizedBox(height: 2),
                         Row(children: [
                           Text(g.categoria, style: tt.bodySmall),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Text('· ${DateFormat('dd/MM').format(g.fecha)}',
-                              style: tt.bodySmall),
+                              style: tt.bodySmall?.copyWith(color: Colors.grey)),
                           if (g.esFijo) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 1),
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: cs.primaryContainer
-                                    .withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
+                                color: cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text('Fijo',
                                   style: TextStyle(
-                                      fontSize: 10, color: cs.primary)),
+                                      fontSize: 10, color: cs.primary, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ]),
@@ -240,8 +296,8 @@ class _ListaGastos extends StatelessWidget {
                   ),
                   Text('S/ ${g.monto.toStringAsFixed(2)}',
                       style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: cs.error)),
                 ]),
               ),

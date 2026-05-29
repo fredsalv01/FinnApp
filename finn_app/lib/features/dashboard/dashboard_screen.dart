@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../core/widgets/finanzas_card.dart';
 import '../../core/widgets/finanzas_top_app_bar.dart';
 import '../../shared/models/gasto.dart';
@@ -9,6 +10,7 @@ import '../../shared/models/meta_ahorro.dart';
 import '../../shared/services/database_helper.dart';
 import '../../shared/services/user_preferences.dart';
 import '../../shared/services/data_refresh_notifier.dart';
+import '../../shared/services/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -46,6 +48,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final g = await db.getGastos();
     final m = await db.getMetas();
     final t = await db.getTotalAportes();
+    
+    // Simular un retraso corto de 800ms solo para mostrar el shimmer elegante de Revolut
+    await Future.delayed(const Duration(milliseconds: 600));
+
     if (!mounted) return;
     setState(() {
       _nombre = n ?? '';
@@ -55,6 +61,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _totalAhorros = t;
       _loading = false;
     });
+
+    // Validar metas próximas
+    NotificationService().checkMetasProximas();
   }
 
   double get _totalGastos => _gastos.fold(0.0, (s, g) => s + g.monto);
@@ -79,14 +88,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final tt = Theme.of(ctx).textTheme;
 
     if (_loading) {
-      return Scaffold(
-        appBar: FinanzasTopAppBar(subtitle: _mesActual),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const _DashboardShimmer();
     }
 
     return Scaffold(
-      appBar: FinanzasTopAppBar(subtitle: _mesActual),
+      appBar: FinanzasTopAppBar(
+        subtitle: _mesActual,
+        onAdd: () => ctx.push('/gastos/agregar'),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -96,8 +105,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _nombre.isNotEmpty ? 'Hola, $_nombre 👋' : 'Hola 👋',
               style: tt.headlineLarge,
             ),
-            Text('Aquí está tu resumen del mes', style: tt.bodySmall),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
+            Text('Tu balance fintech está actualizado', style: tt.bodySmall),
+            const SizedBox(height: 20),
 
             _DisponibleCard(
               cs: cs,
@@ -107,16 +117,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               disponible: _disponible,
               ahorros: _totalAhorros,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            if (_metas.isNotEmpty)
+            if (_metas.isNotEmpty) ...[
               _AhorroCard(
                 cs: cs,
                 tt: tt,
                 meta: _metas.first,
                 totalAhorrado: _totalAhorros,
               ),
-            if (_metas.isNotEmpty) const SizedBox(height: 12),
+              const SizedBox(height: 16),
+            ],
 
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,10 +144,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(child: _AccionesRapidasCard(cs: cs, tt: tt, ctx: ctx)),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             _UltimasTransacciones(cs: cs, tt: tt, gastos: _gastos),
             const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- SHIMMER LOADER SKELETON ---
+class _DashboardShimmer extends StatelessWidget {
+  const _DashboardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const FinanzasTopAppBar(subtitle: 'Cargando...'),
+      body: Shimmer.fromColors(
+        baseColor: Colors.white.withValues(alpha: 0.05),
+        highlightColor: Colors.white.withValues(alpha: 0.1),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              height: 28,
+              width: 150,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 16,
+              width: 220,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 110,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -158,45 +247,69 @@ class _DisponibleCard extends StatelessWidget {
     required this.ahorros,
   });
 
-  String _fmt(double v) => 'S/ ${v.toStringAsFixed(0)}';
+  String _fmt(double v) => 'S/ ${v.toStringAsFixed(2)}';
 
   @override
   Widget build(BuildContext ctx) {
-    return FinanzasCard(
-      color: cs.primary,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            cs.primary.withValues(alpha: 0.15),
+            cs.secondary.withValues(alpha: 0.15),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'DISPONIBLE TOTAL',
-            style: tt.labelSmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.7),
-              letterSpacing: 1,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'DISPONIBLE TOTAL',
+                style: tt.labelSmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00C896),
+                  shape: BoxShape.circle,
+                ),
+              )
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(_fmt(disponible),
               style: tt.displayMedium?.copyWith(color: Colors.white)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _MiniStat(
                   label: 'Ingresos',
                   value: _fmt(ingresos),
-                  icon: Icons.arrow_downward,
-                  color: const Color(0xFF10B981)),
-              const SizedBox(width: 24),
+                  icon: Icons.south_west,
+                  color: cs.primary),
               _MiniStat(
                   label: 'Gastos',
                   value: _fmt(gastos),
-                  icon: Icons.arrow_upward,
-                  color: Colors.redAccent),
-              const SizedBox(width: 24),
+                  icon: Icons.north_east,
+                  color: cs.error),
               _MiniStat(
-                  label: 'Ahorro',
+                  label: 'Ahorros',
                   value: _fmt(ahorros),
                   icon: Icons.savings_outlined,
-                  color: Colors.white70),
+                  color: cs.secondary),
             ],
           ),
         ],
@@ -222,14 +335,15 @@ class _MiniStat extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Icon(icon, size: 12, color: color),
+          Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ]),
+        const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
       ],
     );
   }
@@ -264,52 +378,53 @@ class _AhorroCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Row(children: [
-            Icon(Icons.savings, color: cs.primary, size: 18),
+            Icon(Icons.savings_outlined, color: cs.secondary, size: 20),
             const SizedBox(width: 8),
             Text('Meta de Ahorro', style: tt.headlineMedium),
           ]),
           Text('$pct%',
               style: tt.bodySmall?.copyWith(
-                  color: cs.primary, fontWeight: FontWeight.w600)),
+                  color: cs.secondary, fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 4),
         Text(meta.nombre, style: tt.bodySmall),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(99),
           child: LinearProgressIndicator(
             value: progreso,
-            minHeight: 10,
-            backgroundColor: cs.primaryContainer.withValues(alpha: 0.2),
-            valueColor: AlwaysStoppedAnimation(cs.primary),
+            minHeight: 8,
+            backgroundColor: Colors.white.withValues(alpha: 0.05),
+            valueColor: AlwaysStoppedAnimation(cs.secondary),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('S/ ${totalAhorrado.toStringAsFixed(0)} ahorrados',
               style: tt.bodySmall),
           Text('Meta: S/ ${meta.montoObjetivo.toStringAsFixed(0)}',
-              style: tt.bodySmall),
+              style: tt.bodySmall?.copyWith(color: Colors.grey)),
         ]),
-        const SizedBox(height: 8),
-        if (mesesRest > 0 && faltante > 0)
+        if (mesesRest > 0 && faltante > 0) ...[
+          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              color: cs.secondary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(children: [
-              Icon(Icons.info_outline, size: 14, color: cs.primary),
-              const SizedBox(width: 6),
+              Icon(Icons.info_outline, size: 14, color: cs.secondary),
+              const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Ahorrar S/ ${mensualSugerido.toStringAsFixed(0)} este mes para cumplir tu meta',
-                  style: tt.bodySmall?.copyWith(color: cs.primary),
+                  'Ahorra S/ ${mensualSugerido.toStringAsFixed(0)}/mes para cumplir tu meta',
+                  style: tt.bodySmall?.copyWith(color: cs.secondary),
                 ),
               ),
             ]),
           ),
+        ],
       ]),
     );
   }
@@ -332,24 +447,23 @@ class _DonutCard extends StatelessWidget {
   Widget build(BuildContext ctx) {
     final colors = [
       cs.primary,
-      cs.primaryContainer,
       cs.secondary,
-      cs.secondary.withValues(alpha: 0.4),
-      const Color(0xFFF59E0B),
       const Color(0xFF8B5CF6),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEC4899),
     ];
     final entries = gastosPorCategoria.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final top = entries.take(4).toList();
+    final top = entries.take(3).toList();
 
     return FinanzasCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Gastos', style: tt.headlineMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 120,
+            height: 100,
             child: top.isEmpty
                 ? Center(
                     child: Text('Sin datos',
@@ -357,26 +471,26 @@ class _DonutCard extends StatelessWidget {
                   )
                 : PieChart(
                     PieChartData(
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 30,
+                      sectionsSpace: 3,
+                      centerSpaceRadius: 24,
                       sections: List.generate(top.length, (i) {
                         return PieChartSectionData(
                           value: top[i].value,
                           color: colors[i % colors.length],
-                          radius: 20,
+                          radius: 16,
                           showTitle: false,
                         );
                       }),
                     ),
                   ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           ...List.generate(top.length, (i) {
             final pct =
                 total > 0 ? (top[i].value / total * 100).toStringAsFixed(0) : '0';
             return _Leyenda(
               color: colors[i % colors.length],
-              label: '${top[i].key} $pct%',
+              label: '${top[i].key} ($pct%)',
             );
           }),
         ],
@@ -393,20 +507,20 @@ class _Leyenda extends StatelessWidget {
   @override
   Widget build(BuildContext ctx) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
         Container(
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(2)),
+              color: color, borderRadius: BorderRadius.circular(4)),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: Colors.grey),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ),
       ]),
@@ -431,17 +545,17 @@ class _AccionesRapidasCard extends StatelessWidget {
       (Icons.auto_awesome, 'IA Tips', '/recomendaciones'),
     ];
     return FinanzasCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Acciones', style: tt.headlineMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         GridView.count(
           shrinkWrap: true,
           crossAxisCount: 2,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1,
+          childAspectRatio: 1.0,
           children: items
               .map((e) => _AccionItem(
                     icon: e.$1,
@@ -473,17 +587,18 @@ class _AccionItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: cs.primary, size: 22),
-          const SizedBox(height: 4),
+          Icon(icon, color: cs.primary, size: 24),
+          const SizedBox(height: 6),
           Text(label,
               style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: cs.primary,
-                  fontWeight: FontWeight.w600)),
+                  fontWeight: FontWeight.bold)),
         ]),
       ),
     );
@@ -525,21 +640,27 @@ class _UltimasTransacciones extends StatelessWidget {
 
   @override
   Widget build(BuildContext ctx) {
-    final ultimos = gastos.take(5).toList();
+    final ultimos = gastos.take(4).toList();
     return FinanzasCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Últimas transacciones', style: tt.headlineMedium),
+          Text('Transacciones', style: tt.headlineMedium),
           TextButton(
               onPressed: () => ctx.go('/gastos'),
               child: Text('Ver todo', style: TextStyle(color: cs.primary))),
         ]),
+        const SizedBox(height: 4),
         if (ultimos.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
-              child: Text('Aún no hay transacciones',
-                  style: tt.bodySmall),
+              child: Column(
+                children: [
+                  Icon(Icons.payment, size: 40, color: Colors.white.withValues(alpha: 0.1)),
+                  const SizedBox(height: 8),
+                  Text('Aún no hay transacciones', style: tt.bodySmall),
+                ],
+              ),
             ),
           )
         else
@@ -547,7 +668,7 @@ class _UltimasTransacciones extends StatelessWidget {
                 icon: _iconFor(g.categoria),
                 nombre: g.nombre,
                 categoria: g.categoria,
-                monto: '-S/ ${g.monto.toStringAsFixed(0)}',
+                monto: '-S/ ${g.monto.toStringAsFixed(2)}',
                 cs: cs,
                 tt: tt,
               )),
@@ -573,24 +694,25 @@ class _TransaccionTile extends StatelessWidget {
   @override
   Widget build(BuildContext ctx) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+            color: cs.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: cs.primary, size: 18),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(nombre,
                   style: tt.bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w500, fontSize: 14)),
+                      ?.copyWith(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 2),
               Text(categoria, style: tt.bodySmall),
             ],
           ),
@@ -598,7 +720,7 @@ class _TransaccionTile extends StatelessWidget {
         Text(monto,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
               color: cs.error,
             )),
       ]),

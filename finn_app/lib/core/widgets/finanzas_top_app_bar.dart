@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 
 class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? subtitle;
-  const FinanzasTopAppBar({super.key, this.subtitle});
+  final VoidCallback? onAdd;
+  
+  const FinanzasTopAppBar({
+    super.key,
+    this.subtitle,
+    this.onAdd,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -30,6 +36,11 @@ class FinanzasTopAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
+        if (onAdd != null)
+          IconButton(
+            icon: Icon(Icons.add, color: cs.primary, size: 26),
+            onPressed: onAdd,
+          ),
         IconButton(
           icon: Badge(
             backgroundColor: cs.error,

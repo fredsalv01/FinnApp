@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/gastos/gastos_screen.dart';
 import '../features/ahorros/ahorros_screen.dart';
@@ -10,6 +11,7 @@ import '../features/gastos/agregar_gasto_screen.dart';
 import '../features/ahorros/crear_meta_screen.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../features/configuracion/recordatorios_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
@@ -29,6 +31,7 @@ final router = GoRouter(
     GoRoute(path: '/gastos/agregar',   builder: (c, s) => const AgregarGastoScreen()),
     GoRoute(path: '/ahorros/nueva-meta', builder: (c, s) => const CrearMetaScreen()),
     GoRoute(path: '/recomendaciones',  builder: (c, s) => const RecomendacionesIAScreen()),
+    GoRoute(path: '/config/recordatorios', builder: (c, s) => const RecordatoriosScreen()),
   ],
 );
 
@@ -46,32 +49,57 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext ctx) {
+    final cs = Theme.of(ctx).colorScheme;
+
     return Scaffold(
       body: widget.child,
-      floatingActionButton: _idx < 3
-          ? FloatingActionButton(
-              onPressed: () => _idx == 1
-                  ? ctx.push('/gastos/agregar')
-                  : _idx == 2
-                      ? ctx.push('/ahorros/nueva-meta')
-                      : null,
-              child: const Icon(Icons.add),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _idx,
-        onTap: (i) {
-          setState(() => _idx = i);
-          ctx.go(_routes[i]);
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined),     activeIcon: Icon(Icons.dashboard),     label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.payments_outlined),      activeIcon: Icon(Icons.payments),      label: 'Gastos'),
-          BottomNavigationBarItem(icon: Icon(Icons.savings_outlined),       activeIcon: Icon(Icons.savings),       label: 'Ahorros'),
-          BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined),     activeIcon: Icon(Icons.analytics),     label: 'Reportes'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined),      activeIcon: Icon(Icons.settings),      label: 'Config'),
-        ],
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          border: Border(
+            top: BorderSide(
+              color: Colors.white.withValues(alpha: 0.05),
+              width: 1.0,
+            ),
+          ),
+        ),
+        child: SalomonBottomBar(
+          currentIndex: _idx,
+          onTap: (i) {
+            setState(() => _idx = i);
+            ctx.go(_routes[i]);
+          },
+          selectedItemColor: cs.primary,
+          unselectedItemColor: Colors.grey,
+          items: [
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.dashboard_outlined),
+              title: const Text("Dashboard"),
+              selectedColor: cs.primary,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.payments_outlined),
+              title: const Text("Gastos"),
+              selectedColor: cs.error,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.savings_outlined),
+              title: const Text("Ahorros"),
+              selectedColor: cs.secondary,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.analytics_outlined),
+              title: const Text("Reportes"),
+              selectedColor: cs.primary,
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.settings_outlined),
+              title: const Text("Config"),
+              selectedColor: Colors.purpleAccent,
+            ),
+          ],
+        ),
       ),
     );
   }

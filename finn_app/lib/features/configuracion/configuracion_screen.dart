@@ -125,6 +125,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
             value: 'Soles (S/)',
             cs: cs,
           ),
+          _ConfigTile(
+            icon: Icons.notifications_active_outlined,
+            label: 'Recordatorios de pago',
+            value: 'Configurar avisos de pago programados',
+            cs: cs,
+            onTap: () => context.push('/config/recordatorios'),
+          ),
           const Divider(height: 24),
 
           _SeccionTitulo('Apariencia', tt),
