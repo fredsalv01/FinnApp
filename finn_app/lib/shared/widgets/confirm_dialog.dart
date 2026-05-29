@@ -11,19 +11,20 @@ Future<bool> showConfirmDialog(
   final cs = Theme.of(context).colorScheme;
   final result = await showDialog<bool>(
     context: context,
-    builder: (_) => AlertDialog(
+    useRootNavigator: true,
+    builder: (dialogCtx) => AlertDialog(
       title: Text(title),
       content: Text(message),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(dialogCtx, false),
           child: Text(cancelText),
         ),
         FilledButton(
           style: destructive
               ? FilledButton.styleFrom(backgroundColor: cs.error)
               : null,
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => Navigator.pop(dialogCtx, true),
           child: Text(confirmText),
         ),
       ],

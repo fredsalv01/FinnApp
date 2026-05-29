@@ -423,7 +423,9 @@ class _AccountCardState extends State<_AccountCard> {
       confirmText: 'Cerrar sesión',
     );
     if (!ok) return;
-    await AuthService().signOut();
+    try {
+      await AuthService().signOut();
+    } catch (_) {}
     if (!mounted) return;
     setState(() {});
   }
